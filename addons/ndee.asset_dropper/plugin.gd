@@ -157,14 +157,16 @@ func add_item(parent,pos,set_owner=true):
 	asset_instance_init_scale = asset_instance.get_scale()
 	
 func add_preview(parent,pos):
-	asset_preview = resource_assets[resource_asset_index].duplicate()
-	if parent == null:
-		parent = resource_assets[resource_asset_index].get_parent()
-	parent.add_child(asset_preview)
+	if asset_preview == null:
+		asset_preview = resource_assets[resource_asset_index].duplicate()
+		if parent == null:
+			parent = resource_assets[resource_asset_index].get_parent()
+		parent.add_child(asset_preview)
+			
+		asset_preview.set_global_pos(pos)
+		asset_preview.set_name("preview")
+		asset_preview.set_scale(asset_preview.get_scale() * flip_asset)
 		
-	asset_preview.set_global_pos(pos)
-	asset_preview.set_name("preview")
-	asset_preview.set_scale(asset_preview.get_scale() * flip_asset)
 
 func transform_asset_preview():
 	if asset_preview != null:
@@ -304,6 +306,7 @@ func draw_asset_behavior(forward_input):
 		add_item(target_node,mouse_pos,false)
 		draw_stroke_assets.append(asset_instance)
 		transform_stroke_assets.append(asset_instance)
+		get_random_asset_index()
 		
 
 	elif mouse_l == 2 and key_a in [1,2] and stroke_length >= stroke_target_length:
@@ -319,6 +322,8 @@ func draw_asset_behavior(forward_input):
 			add_item(target_node,pos,false)
 			draw_stroke_assets.append(asset_instance)
 			transform_stroke_assets.append(asset_instance)
+			
+			get_random_asset_index()
 		mouse_pos_stamp = mouse_pos
 		
 		
@@ -331,6 +336,10 @@ func draw_asset_behavior(forward_input):
 		get_undo_redo().create_action("Draw Assets")
 		get_undo_redo().add_undo_method(self,"run_draw_undo",draw_stroke_assets,get_selection().get_selected_nodes())
 		get_undo_redo().commit_action()
+		
+		### reload asset preview
+		delete_preview()
+		add_preview(target_node,mouse_pos)
 	transform_asset_preview()
 		
 		
@@ -359,7 +368,6 @@ func drop_asset_behavior(forward_input):
 		
 	elif mouse_l == 3 and key_a in[1,2] and mouse_apply == 0:
 		mouse_apply = 1
-		get_random_asset_index()
 	
 	### drag asset behavior while transforming
 	if key_space == 1 and asset_instance != null:
@@ -448,7 +456,8 @@ func drop_asset_behavior(forward_input):
 			
 			asset_instance = null
 			Input.warp_mouse_pos(Vector2(mouse_pos_os_stamp))
-			add_preview(root_node,mouse_pos_stamp)
+			get_random_asset_index()
+			add_preview(target_node,mouse_pos_stamp)
 			
 			
 		
