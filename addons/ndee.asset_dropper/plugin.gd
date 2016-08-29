@@ -581,6 +581,8 @@ func scrub_through_assets():
 		
 	elif Input.is_mouse_button_pressed(BUTTON_WHEEL_DOWN):
 		settings["group_indices"][settings["active_group"]] -= 1
+		if settings["group_indices"][settings["active_group"]] < 0:
+			settings["group_indices"][settings["active_group"]] = resource_assets.size()-1
 		settings["group_indices"][settings["active_group"]] = int(settings["group_indices"][settings["active_group"]])%resource_assets.size()
 		resource_asset_index = settings["group_indices"][settings["active_group"]]
 		delete_preview()
@@ -622,7 +624,7 @@ func forward_input_event(event):
 		
 		
 		
-	if root_node != null and (resource_asset_index <= resource_assets.size() - 1) and resource_assets[resource_asset_index] != null and resource_assets[resource_asset_index].get_owner() != null:
+	if root_node != null and (resource_asset_index <= resource_assets.size()-1) and resource_assets[resource_asset_index] != null and resource_assets[resource_asset_index].get_owner() != null:
 		if key_a in [1,2]:
 			if key_f == 1:
 				flip_asset.x *= -1
