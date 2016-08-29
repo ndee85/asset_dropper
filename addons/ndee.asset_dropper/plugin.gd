@@ -635,7 +635,7 @@ func forward_input_event(event):
 				delete_preview()
 				add_preview(target_node,Vector2(0,0))
 			
-			if asset_index_mode == "Manual":
+			if asset_index_mode in ["Manual","Cyclic"]:
 				scrub_through_assets()
 		
 		### drop asset behavior -> lets you place assets and scale,rotate and reposition them via dragging
