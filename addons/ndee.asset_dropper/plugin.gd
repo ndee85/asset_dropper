@@ -229,6 +229,12 @@ func add_item(parent,pos,set_owner=true):
 	asset_instance_init_rot = asset_instance.get_rot()
 	asset_instance_init_scale = asset_instance.get_scale()
 	
+	### remove dropped assets from groups
+	for i in range(0,10):
+		var group_name = "asset_drop_" + str(i)
+		if asset_instance.is_in_group(group_name):
+			asset_instance.remove_from_group(group_name)
+	
 func add_preview(parent,pos):
 	if asset_preview == null:
 		asset_preview = resource_assets[resource_asset_index].duplicate()
