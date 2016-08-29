@@ -10,6 +10,9 @@ var button
 ### user interface variables
 var ui_button
 var asset_dropper_ui
+
+var enable_scaling
+var enable_rotation
 var grid_size
 var grid_angle
 var grid_scale
@@ -20,7 +23,7 @@ var use_scale
 var use_rotation
 var asset_index_mode = "Manual"
 var flip_asset = Vector2(1,1)
-var asset_draw_mode = "Drop"
+var draw_mode = "Drop"
 var align_asset_to_stroke
 var stroke_distance
 
@@ -92,11 +95,64 @@ var key_settings
 var constraint_x = false
 var constraint_y = false
 
-var settings = {
-	"active_asset_group":0,
-	"group_asset_indexes":[0,0,0,0,0,0,0,0,0,0],
+var ui_settings = {
+	"draw_mode":0,
+	"asset_index_mode":0,
+	"use_scale":true,
+	"use_rotation":true,
+	"stroke_distance":100,
+	"align_asset_to_stroke":false,
+	"grid_size":100,
+	"grid_angle":15,
+	"grid_scale":0.1,
+	"use_grid_size":false,
+	"use_grid_angle":false,
+	"use_grid_scale":false,
 }
 
+var settings_tmp
+var settings = {
+	"active_group":0,
+	"group_indices":[0,0,0,0,0,0,0,0,0,0],
+	"ui_settings":ui_settings,
+}
+
+func get_ui_settings_from_dict():
+	asset_dropper_ui.get_node("asset_draw_mode").select(settings["ui_settings"]["draw_mode"])
+	asset_dropper_ui.get_node("asset_index_mode").select(settings["ui_settings"]["asset_index_mode"])
+	use_scale.set_pressed(settings["ui_settings"]["use_scale"])
+	use_rotation.set_pressed(settings["ui_settings"]["use_rotation"])
+	stroke_distance.set_value(settings["ui_settings"]["stroke_distance"])
+	align_asset_to_stroke.set_pressed(settings["ui_settings"]["align_asset_to_stroke"])
+	grid_size.set_value(settings["ui_settings"]["grid_size"])
+	grid_angle.set_value(settings["ui_settings"]["grid_angle"])
+	grid_scale.set_value(settings["ui_settings"]["grid_scale"])
+	use_grid_size.set_pressed(settings["ui_settings"]["use_grid_size"])
+	use_grid_angle.set_pressed(settings["ui_settings"]["use_grid_angle"])
+	use_grid_scale.set_pressed(settings["ui_settings"]["use_grid_scale"])
+	
+	draw_mode_select(settings["ui_settings"]["draw_mode"])
+	set_asset_index_mode(settings["ui_settings"]["asset_index_mode"])
+	toggle_use_grid_size(settings["ui_settings"]["use_grid_size"])
+	toggle_use_grid_angle(settings["ui_settings"]["use_grid_angle"])
+	toggle_use_grid_scale(settings["ui_settings"]["use_grid_scale"])
+	
+
+func write_ui_settings_to_dict():
+	settings["ui_settings"]["draw_mode"] = asset_dropper_ui.get_node("asset_draw_mode").get_selected()
+	settings["ui_settings"]["asset_index_mode"] = asset_dropper_ui.get_node("asset_index_mode").get_selected()
+	settings["ui_settings"]["use_scale"] = use_scale.is_pressed()
+	settings["ui_settings"]["use_rotation"] = use_rotation.is_pressed()
+	settings["ui_settings"]["stroke_distance"] = stroke_distance.get_value()
+	settings["ui_settings"]["align_asset_to_stroke"] = align_asset_to_stroke.is_pressed()
+	settings["ui_settings"]["grid_size"] = grid_size.get_value()
+	settings["ui_settings"]["grid_angle"] = grid_angle.get_value()
+	settings["ui_settings"]["grid_scale"] = grid_scale.get_value()
+	settings["ui_settings"]["use_grid_size"] = use_grid_size.is_pressed()
+	settings["ui_settings"]["use_grid_angle"] = use_grid_angle.is_pressed()
+	settings["ui_settings"]["use_grid_scale"] = use_grid_scale.is_pressed()
+	
+	
 func load_settings():
 	var save_file_res = File.new()
 	if save_file_res.file_exists("ndee.asset_dropper.settings"):
@@ -127,11 +183,11 @@ func get_random_asset_index():
 	randomize()
 	
 	if asset_index_mode == "Random":
-		settings["group_asset_indexes"][settings["active_asset_group"]] = randi()%length
+		settings["group_indices"][settings["active_group"]] = randi()%length
 	elif asset_index_mode == "Cyclic":
-		settings["group_asset_indexes"][settings["active_asset_group"]] += 1
-		settings["group_asset_indexes"][settings["active_asset_group"]] = int(settings["group_asset_indexes"][settings["active_asset_group"]])%length
-	return settings["group_asset_indexes"][settings["active_asset_group"]]
+		settings["group_indices"][settings["active_group"]] += 1
+		settings["group_indices"][settings["active_group"]] = int(settings["group_indices"][settings["active_group"]])%length
+	return settings["group_indices"][settings["active_group"]]
 
 func run_undo(node,selection):
 	get_selection().clear()
@@ -208,7 +264,7 @@ func print_stuff(tree):
 				print(item2.get_function_list())
 				
 func _input(ev):
-	if root_node != null and viewport != null:
+	if viewport != null:
 		if ev.type == InputEvent.MOUSE_MOTION:
 			#print(viewport.get_final_transform() * viewport.get_mouse_pos())
 			mouse_pos = viewport.get_global_canvas_transform().affine_inverse() * (ev.pos - offset)
@@ -250,9 +306,9 @@ func add_to_group():
 				resource_assets = get_tree().get_nodes_in_group(group_name)
 				var msg = "Assets added to Group" + str(i)
 				show_msg_dialog(msg)
-				if settings["group_asset_indexes"][settings["active_asset_group"]] > resource_assets.size()-1:
-					 settings["group_asset_indexes"][settings["active_asset_group"]] = resource_assets.size()-1
-				resource_asset_index = settings["group_asset_indexes"][settings["active_asset_group"]]
+				if settings["group_indices"][settings["active_group"]] > resource_assets.size()-1:
+					 settings["group_indices"][settings["active_group"]] = resource_assets.size()-1
+				resource_asset_index = settings["group_indices"][settings["active_group"]]
 				return true
 	return false
 				
@@ -265,11 +321,13 @@ func set_group_as_resource_assets(assign=null):
 				var group_name = "asset_drop_" + str(i)
 				if get_tree().has_group(group_name):
 					resource_assets = get_tree().get_nodes_in_group(group_name)
-					settings["active_asset_group"] = i
+#					get_group_settings() ### get settings from user interface
+					settings["active_group"] = i
+#					set_group_settings() ### set user interface settings
 					
-					resource_asset_index = settings["group_asset_indexes"][settings["active_asset_group"]]
-					if settings["group_asset_indexes"][settings["active_asset_group"]] > resource_assets.size()-1:
-						settings["group_asset_indexes"][settings["active_asset_group"]] = resource_assets.size()-1
+					resource_asset_index = settings["group_indices"][settings["active_group"]]
+					if settings["group_indices"][settings["active_group"]] > resource_assets.size()-1:
+						settings["group_indices"][settings["active_group"]] = resource_assets.size()-1
 					
 					if asset_preview == null:
 						add_preview(target_node,mouse_pos)
@@ -342,7 +400,7 @@ func draw_asset_behavior(forward_input):
 			draw_stroke_assets.append(asset_instance)
 			transform_stroke_assets.append(asset_instance)
 			get_random_asset_index()
-			resource_asset_index = settings["group_asset_indexes"][settings["active_asset_group"]]
+			resource_asset_index = settings["group_indices"][settings["active_group"]]
 			
 		mouse_pos_stamp = mouse_pos
 		
@@ -515,16 +573,16 @@ func open_settings_menu():
 
 func scrub_through_assets():
 	if Input.is_mouse_button_pressed(BUTTON_WHEEL_UP):
-		settings["group_asset_indexes"][settings["active_asset_group"]] += 1
-		settings["group_asset_indexes"][settings["active_asset_group"]] = int(settings["group_asset_indexes"][settings["active_asset_group"]])%resource_assets.size()
-		resource_asset_index = settings["group_asset_indexes"][settings["active_asset_group"]]
+		settings["group_indices"][settings["active_group"]] += 1
+		settings["group_indices"][settings["active_group"]] = int(settings["group_indices"][settings["active_group"]])%resource_assets.size()
+		resource_asset_index = settings["group_indices"][settings["active_group"]]
 		delete_preview()
 		add_preview(target_node,Vector2(0,0))
 		
 	elif Input.is_mouse_button_pressed(BUTTON_WHEEL_DOWN):
-		settings["group_asset_indexes"][settings["active_asset_group"]] -= 1
-		settings["group_asset_indexes"][settings["active_asset_group"]] = int(settings["group_asset_indexes"][settings["active_asset_group"]])%resource_assets.size()
-		resource_asset_index = settings["group_asset_indexes"][settings["active_asset_group"]]
+		settings["group_indices"][settings["active_group"]] -= 1
+		settings["group_indices"][settings["active_group"]] = int(settings["group_indices"][settings["active_group"]])%resource_assets.size()
+		resource_asset_index = settings["group_indices"][settings["active_group"]]
 		delete_preview()
 		add_preview(target_node,Vector2(0,0))
 
@@ -543,7 +601,7 @@ func forward_input_event(event):
 	key_ctrl = key_ctrl_input.check()
 	key_shift = key_shift_input.check()
 	
-	resource_asset_index = settings["group_asset_indexes"][settings["active_asset_group"]]
+	resource_asset_index = settings["group_indices"][settings["active_group"]]
 	
 	var forward_input = false
 	forward_input = forward_input or move_node_in_tree()
@@ -564,9 +622,7 @@ func forward_input_event(event):
 		
 		
 		
-	if root_node != null and resource_assets.size() > 0 and resource_assets[resource_asset_index] != null and resource_assets[resource_asset_index].get_owner() != null:
-		if key_a == 1 and resource_assets.size() == 0:
-			set_group_as_resource_assets(settings["active_asset_group"])
+	if root_node != null and (resource_asset_index <= resource_assets.size() - 1) and resource_assets[resource_asset_index] != null and resource_assets[resource_asset_index].get_owner() != null:
 		if key_a in [1,2]:
 			if key_f == 1:
 				flip_asset.x *= -1
@@ -581,10 +637,11 @@ func forward_input_event(event):
 				scrub_through_assets()
 		
 		### drop asset behavior -> lets you place assets and scale,rotate and reposition them via dragging
-		if asset_draw_mode == "Drop":
-			forward_input = forward_input or drop_asset_behavior(forward_input)
-		elif asset_draw_mode == "Draw":
-			forward_input = forward_input or draw_asset_behavior(forward_input)
+		if key_ctrl == 0:
+			if draw_mode == "Drop":
+				forward_input = forward_input or drop_asset_behavior(forward_input)
+			elif draw_mode == "Draw":
+				forward_input = forward_input or draw_asset_behavior(forward_input)
 		
 	
 	return forward_input
@@ -602,11 +659,11 @@ func set_asset_index_mode(idx):
 	asset_index_mode = asset_dropper_ui.get_node("asset_index_mode").get_item_text(idx)
 
 func draw_mode_select(idx):
-	asset_draw_mode = asset_dropper_ui.get_node("asset_draw_mode").get_item_text(idx)
-	if asset_draw_mode == "Draw":
+	draw_mode = asset_dropper_ui.get_node("asset_draw_mode").get_item_text(idx)
+	if draw_mode == "Draw":
 		asset_dropper_ui.get_node("drop_mode").hide()
 		asset_dropper_ui.get_node("draw_mode").show()
-	elif asset_draw_mode == "Drop":
+	elif draw_mode == "Drop":
 		asset_dropper_ui.get_node("drop_mode").show()
 		asset_dropper_ui.get_node("draw_mode").hide()	
 		
@@ -633,7 +690,6 @@ func toggle_use_grid_scale(pressed):
 		grid_scale.get_node("Label").set_opacity(.5)
 
 func _enter_tree():
-	load_settings()
 	
 	print("enter tree")
 	set_process_input(true)
@@ -671,9 +727,12 @@ func _enter_tree():
 	ui_button.set_text("Asset Dropper")
 	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU,ui_button)
 	ui_button.connect("pressed",self,"open_asset_dropper_ui")
+	load_settings()
+	get_ui_settings_from_dict()
 	
 	
 func _exit_tree():
+	write_ui_settings_to_dict()
 	save_settings()
 	
 	set_process_input(false)
