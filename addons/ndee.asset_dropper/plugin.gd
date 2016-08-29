@@ -236,7 +236,7 @@ func add_item(parent,pos,set_owner=true):
 			asset_instance.remove_from_group(group_name)
 	
 func add_preview(parent,pos):
-	if asset_preview == null:
+	if asset_preview == null and resource_asset_index <= resource_assets.size()-1:
 		asset_preview = resource_assets[resource_asset_index].duplicate()
 		if parent == null:
 			parent = resource_assets[resource_asset_index].get_parent()
