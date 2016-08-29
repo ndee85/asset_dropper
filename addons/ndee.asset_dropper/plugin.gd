@@ -92,10 +92,27 @@ var key_settings
 var constraint_x = false
 var constraint_y = false
 
-var export_variables = {
+var settings = {
 	"active_asset_group":0,
 	"group_asset_indexes":[0,0,0,0,0,0,0,0,0,0],
 }
+
+func load_settings():
+	var save_file_res = File.new()
+	if save_file_res.file_exists("ndee.asset_dropper.settings"):
+		save_file_res.open("ndee.asset_dropper.settings",File.READ)
+		#settings = save_file_res.get_as_text()
+		settings.parse_json(save_file_res.get_as_text())
+		save_file_res.close()
+		
+	else:
+		save_settings()
+	
+func save_settings():
+	var save_file_res = File.new()
+	save_file_res.open("ndee.asset_dropper.settings",File.WRITE)
+	save_file_res.store_string(settings.to_json())
+	save_file_res.close()
 
 func show_msg_dialog(text=""):
 	var script = preload("msg_dialog.gd")
@@ -110,11 +127,11 @@ func get_random_asset_index():
 	randomize()
 	
 	if asset_index_mode == "Random":
-		export_variables["group_asset_indexes"][export_variables["active_asset_group"]] = randi()%length
+		settings["group_asset_indexes"][settings["active_asset_group"]] = randi()%length
 	elif asset_index_mode == "Cyclic":
-		export_variables["group_asset_indexes"][export_variables["active_asset_group"]] += 1
-		export_variables["group_asset_indexes"][export_variables["active_asset_group"]] = export_variables["group_asset_indexes"][export_variables["active_asset_group"]]%length
-	return export_variables["group_asset_indexes"][export_variables["active_asset_group"]]
+		settings["group_asset_indexes"][settings["active_asset_group"]] += 1
+		settings["group_asset_indexes"][settings["active_asset_group"]] = int(settings["group_asset_indexes"][settings["active_asset_group"]])%length
+	return settings["group_asset_indexes"][settings["active_asset_group"]]
 
 func run_undo(node,selection):
 	get_selection().clear()
@@ -233,24 +250,26 @@ func add_to_group():
 				resource_assets = get_tree().get_nodes_in_group(group_name)
 				var msg = "Assets added to Group" + str(i)
 				show_msg_dialog(msg)
-				if export_variables["group_asset_indexes"][export_variables["active_asset_group"]] > resource_assets.size()-1:
-					 export_variables["group_asset_indexes"][export_variables["active_asset_group"]] = resource_assets.size()-1
-				resource_asset_index = export_variables["group_asset_indexes"][export_variables["active_asset_group"]]
+				if settings["group_asset_indexes"][settings["active_asset_group"]] > resource_assets.size()-1:
+					 settings["group_asset_indexes"][settings["active_asset_group"]] = resource_assets.size()-1
+				resource_asset_index = settings["group_asset_indexes"][settings["active_asset_group"]]
 				return true
 	return false
 				
-func set_group_as_resource_assets():
+func set_group_as_resource_assets(assign=null):
 	if key_ctrl == 0 and key_shift == 0:
 		for i in range(0,10):
-			if Input.is_key_pressed(KEY_0 + i):
+			if Input.is_key_pressed(KEY_0 + i) or assign != null:
+				if assign != null:
+					i = assign
 				var group_name = "asset_drop_" + str(i)
 				if get_tree().has_group(group_name):
 					resource_assets = get_tree().get_nodes_in_group(group_name)
-					export_variables["active_asset_group"] = i
+					settings["active_asset_group"] = i
 					
-					resource_asset_index = export_variables["group_asset_indexes"][export_variables["active_asset_group"]]
-					if export_variables["group_asset_indexes"][export_variables["active_asset_group"]] > resource_assets.size()-1:
-						export_variables["group_asset_indexes"][export_variables["active_asset_group"]] = resource_assets.size()-1
+					resource_asset_index = settings["group_asset_indexes"][settings["active_asset_group"]]
+					if settings["group_asset_indexes"][settings["active_asset_group"]] > resource_assets.size()-1:
+						settings["group_asset_indexes"][settings["active_asset_group"]] = resource_assets.size()-1
 					
 					if asset_preview == null:
 						add_preview(target_node,mouse_pos)
@@ -322,8 +341,9 @@ func draw_asset_behavior(forward_input):
 			add_item(target_node,pos,false)
 			draw_stroke_assets.append(asset_instance)
 			transform_stroke_assets.append(asset_instance)
-			
 			get_random_asset_index()
+			resource_asset_index = settings["group_asset_indexes"][settings["active_asset_group"]]
+			
 		mouse_pos_stamp = mouse_pos
 		
 		
@@ -495,16 +515,16 @@ func open_settings_menu():
 
 func scrub_through_assets():
 	if Input.is_mouse_button_pressed(BUTTON_WHEEL_UP):
-		export_variables["group_asset_indexes"][export_variables["active_asset_group"]] += 1
-		export_variables["group_asset_indexes"][export_variables["active_asset_group"]] = export_variables["group_asset_indexes"][export_variables["active_asset_group"]]%resource_assets.size()
-		resource_asset_index = export_variables["group_asset_indexes"][export_variables["active_asset_group"]]
+		settings["group_asset_indexes"][settings["active_asset_group"]] += 1
+		settings["group_asset_indexes"][settings["active_asset_group"]] = int(settings["group_asset_indexes"][settings["active_asset_group"]])%resource_assets.size()
+		resource_asset_index = settings["group_asset_indexes"][settings["active_asset_group"]]
 		delete_preview()
 		add_preview(target_node,Vector2(0,0))
 		
 	elif Input.is_mouse_button_pressed(BUTTON_WHEEL_DOWN):
-		export_variables["group_asset_indexes"][export_variables["active_asset_group"]] -= 1
-		export_variables["group_asset_indexes"][export_variables["active_asset_group"]] = export_variables["group_asset_indexes"][export_variables["active_asset_group"]]%resource_assets.size()
-		resource_asset_index = export_variables["group_asset_indexes"][export_variables["active_asset_group"]]
+		settings["group_asset_indexes"][settings["active_asset_group"]] -= 1
+		settings["group_asset_indexes"][settings["active_asset_group"]] = int(settings["group_asset_indexes"][settings["active_asset_group"]])%resource_assets.size()
+		resource_asset_index = settings["group_asset_indexes"][settings["active_asset_group"]]
 		delete_preview()
 		add_preview(target_node,Vector2(0,0))
 
@@ -523,7 +543,7 @@ func forward_input_event(event):
 	key_ctrl = key_ctrl_input.check()
 	key_shift = key_shift_input.check()
 	
-	resource_asset_index = export_variables["group_asset_indexes"][export_variables["active_asset_group"]]
+	resource_asset_index = settings["group_asset_indexes"][settings["active_asset_group"]]
 	
 	var forward_input = false
 	forward_input = forward_input or move_node_in_tree()
@@ -545,10 +565,11 @@ func forward_input_event(event):
 		
 		
 	if root_node != null and resource_assets.size() > 0 and resource_assets[resource_asset_index] != null and resource_assets[resource_asset_index].get_owner() != null:
+		if key_a == 1 and resource_assets.size() == 0:
+			set_group_as_resource_assets(settings["active_asset_group"])
 		if key_a in [1,2]:
 			if key_f == 1:
 				flip_asset.x *= -1
-				#asset_preview.set_scale(asset_preview.get_scale() * flip_asset)
 				delete_preview()
 				add_preview(target_node,Vector2(0,0))
 			if key_g == 1:
@@ -612,6 +633,8 @@ func toggle_use_grid_scale(pressed):
 		grid_scale.get_node("Label").set_opacity(.5)
 
 func _enter_tree():
+	load_settings()
+	
 	print("enter tree")
 	set_process_input(true)
 	
@@ -651,6 +674,8 @@ func _enter_tree():
 	
 	
 func _exit_tree():
+	save_settings()
+	
 	set_process_input(false)
 	
 	print("exit tree")
